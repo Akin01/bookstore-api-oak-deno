@@ -1,0 +1,27 @@
+### Get all books
+GET {{bookApi}}
+
+### Get a book by Id
+GET {{bookApi}}/ee3b2fdc-1177-49b2-90e7-74f273eac8f7
+
+### Update a book
+PUT {{bookApi}}/0371b001-981c-4325-ad0b-faba4c5241d3
+Content-Type: application/json
+
+{
+  "title": "Lord of the Rings",
+  "author": "J.R.R. Tolkien"
+}
+
+### Create a new book
+POST {{bookApi}}
+Content-Type: application/json
+
+{
+  "title": "Madilog",
+  "author": "Tan Malaka"
+}
+
+### Delete a book
+DELETE {{bookApi}}/ee3b2fdc-1177-49b2-90e7-74f273eac8f7
+
