@@ -2,7 +2,7 @@
 GET {{bookApi}}
 
 ### Get a book by Id
-GET {{bookApi}}/ee3b2fdc-1177-49b2-90e7-74f273eac8f7
+GET {{bookApi}}/597d3d3a-2cd3-4f75-a680-091ee723e82b
 
 ### Update a book
 PUT {{bookApi}}/0371b001-981c-4325-ad0b-faba4c5241d3

@@ -9,7 +9,7 @@ interface IDatabase<T> {
   seed: (data: T[]) => void;
 }
 
-export class Database<T extends { id: unknown }> implements IDatabase<T> {
+export class Database<T> implements IDatabase<T & { id: unknown }> {
   dbKey: string;
   data: string | null;
 
@@ -18,64 +18,75 @@ export class Database<T extends { id: unknown }> implements IDatabase<T> {
     this.data = localStorage.getItem(this.dbKey);
 
     if (!this.dbKey) {
-      throw new NotFoundException(`Database ${this.dbKey} not found`);
+      throw new Error("Please provide database key");
     }
   }
 
-  private refreshLocalStorage() {
+  private refreshLocalStorage(items: Array<T & { id: unknown }>) {
+    localStorage.setItem(this.dbKey, JSON.stringify(items));
     this.data = localStorage.getItem(this.dbKey);
   }
 
+  private getParsedData() {
+    return JSON.parse(this.data as string) as Array<T & { id: unknown }>;
+  }
+
   findAll() {
-    this.refreshLocalStorage();
-    const itemsArray = JSON.parse(this.data as string) as unknown as T[];
+    const itemsArray = this.getParsedData();
     if (!itemsArray.length) {
       return;
     }
     return itemsArray;
   }
 
-  insertOne(data: T): T {
-    this.refreshLocalStorage();
-    const itemsArray = JSON.parse(this.data as string);
-    data.id = crypto.randomUUID();
-    itemsArray.push(data);
-    localStorage.setItem(this.dbKey, JSON.stringify(itemsArray));
-    return data;
+  insertOne(data: T): T & { id: unknown } {
+    const itemsArray = this.getParsedData();
+    const newData = {
+      id: crypto.randomUUID(),
+      ...data,
+    } as T & { id: unknown };
+
+    itemsArray.push(newData);
+    this.refreshLocalStorage(itemsArray);
+    return newData;
   }
 
   findOne(id: unknown) {
-    this.refreshLocalStorage();
-    const itemsArray: T[] = JSON.parse(this.data as string);
-    return itemsArray.find((item: T) => item.id === id);
+    const itemsArray = this.getParsedData();
+    return itemsArray.find((e) => e.id === id);
   }
 
-  updateOne(id: unknown, data: T): T {
-    this.refreshLocalStorage();
-    const itemsArray: T[] = JSON.parse(this.data as string);
-    const index = itemsArray.findIndex((item: T) => item.id === id);
+  updateOne(id: unknown, data: T): T & { id: unknown } {
+    const itemsArray = this.getParsedData();
+    const index = itemsArray.findIndex((e) => e.id === id);
     if (index === -1) {
       throw new NotFoundException(`Item with id ${id} not found`);
     }
 
-    itemsArray[index] = data;
-    localStorage.setItem(this.dbKey, JSON.stringify(itemsArray));
-    return data;
+    itemsArray[index] = {
+      ...itemsArray[index],
+      ...data,
+    };
+
+    this.refreshLocalStorage(itemsArray);
+    return itemsArray[index];
   }
 
   deleteOne(id: unknown): void {
-    this.refreshLocalStorage();
-    const itemsArray: T[] = JSON.parse(this.data as string);
-    const index = itemsArray.findIndex((item: T) => item.id === id);
+    const itemsArray = this.getParsedData();
+    const index = itemsArray.findIndex((e) => e.id === id);
     if (index === -1) {
       throw new NotFoundException(`Item with id ${id} not found`);
     }
 
     itemsArray.splice(index, 1);
-    localStorage.setItem(this.dbKey, JSON.stringify(itemsArray));
+    this.refreshLocalStorage(itemsArray);
   }
 
   seed(data: T[]) {
-    localStorage.setItem(this.dbKey, JSON.stringify(data));
+    const items = data.map(
+      (e) => ({ id: crypto.randomUUID(), ...e }),
+    );
+    localStorage.setItem(this.dbKey, JSON.stringify(items));
   }
 }

@@ -14,7 +14,7 @@ export class BookRouter {
     this.db = db;
   }
 
-  compile() {
+  build() {
     this.router
       .get("/", (context) => {
         console.log("%cGET /books", "color: green");
@@ -70,8 +70,6 @@ export class BookRouter {
             );
             return;
           }
-
-          newBook.id = crypto.randomUUID();
           const createdBook = this.db.insertOne(newBook);
           ApiResponse(context).success(createdBook, Status.Created);
         } catch (e) {
@@ -86,9 +84,10 @@ export class BookRouter {
         try {
           const id = context.params.id;
           const requestBody = context.request.body;
-          const updatedBook = <Partial<Book>> await requestBody
+          const newBookPayload: Book = await requestBody
             .json();
-          if (!updatedBook) {
+
+          if (!newBookPayload) {
             ApiResponse(context).error(
               new ForbiddenException("Invalid book data"),
             );
@@ -105,16 +104,15 @@ export class BookRouter {
             return;
           }
 
-          if (updatedBook.title && updatedBook.author) {
-            book.title = updatedBook.title;
-            book.author = updatedBook.author;
-          } else if (updatedBook.title) {
-            book.title = updatedBook.title;
-          } else if (updatedBook.author) {
-            book.author = updatedBook.author;
+          if (newBookPayload.title && newBookPayload.author) {
+            book.title = newBookPayload.title;
+            book.author = newBookPayload.author;
+          } else if (newBookPayload.title) {
+            book.title = newBookPayload.title;
+          } else if (newBookPayload.author) {
+            book.author = newBookPayload.author;
           }
 
-          updatedBook.id = id;
           const bookUpdated = this.db.updateOne(id, book);
           ApiResponse(context).success(bookUpdated, Status.Created);
         } catch (e) {
@@ -129,6 +127,7 @@ export class BookRouter {
         try {
           const id = context.params.id;
           const book = this.db.findOne(id);
+
           if (!book) {
             ApiResponse(context).error(
               new NotFoundException(

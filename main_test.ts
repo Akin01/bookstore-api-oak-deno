@@ -2,9 +2,8 @@ import { assertEquals, assertExists } from "@std/assert";
 import { Status } from "@oak/oak";
 import { config } from "./common/config.ts";
 import { Book, Books } from "./data/books.ts";
-import { Database } from "./db/index.ts";
-import { BOOKS_KEY } from "./constant.ts";
 
+const baseURL = `http://localhost:${config.PORT}`;
 const endpoint = {
   getAllBooks: "/api/books",
   createBook: "/api/books",
@@ -16,7 +15,7 @@ const endpoint = {
 Deno.test({
   name: "Healthcheck",
   async fn() {
-    const response = await fetch(`http://localhost:${config.PORT}`);
+    const response = await fetch(baseURL);
     const body = await response.text();
     assertEquals(body, "Hello World!");
     assertEquals(response.status, Status.OK);
@@ -26,41 +25,46 @@ Deno.test({
 Deno.test({
   name: "Get All Books",
   async fn() {
-    const response = await fetch(
-      `http://localhost:${config.PORT}${endpoint.getAllBooks}`,
-    );
-    const books = <{ success: boolean; data: Book[] }> await response
-      .json();
+    const url = new URL(endpoint.getAllBooks, baseURL);
+    const response = await fetch(url.href);
+    const books: { success: boolean; data: Array<Book & { id: string }> } =
+      await response
+        .json();
+
     assertEquals(response.status, Status.OK);
     assertEquals(books.data.length, Books.length);
-    assertEquals(books.data, Books);
   },
 });
 
 Deno.test({
   name: "Get a Book",
   async fn() {
-    const bookId = "3f70a922-ccac-4524-97b1-80bee584e609";
-    const response = await fetch(
-      `http://localhost:${config.PORT}${endpoint.getBook(bookId)}`,
-    );
+    const getAllBooksUrl = new URL(endpoint.getAllBooks, baseURL);
+    const getAllBooksResponse = await fetch(getAllBooksUrl.href);
+    const books: { success: boolean; data: Array<Book & { id: string }> } =
+      await getAllBooksResponse
+        .json();
 
-    const book = <{ success: boolean; data: Book }> await response
-      .json();
-    assertEquals(response.status, Status.OK);
+    assertExists(books);
 
-    const bookDb = new Database<Book>(BOOKS_KEY);
-    const bookFound = bookDb.findOne(book.data.id);
-    assertExists(bookFound);
-    assertEquals(bookFound.title, book.data.title);
+    const bookSample = books.data[0];
+    const getBookUrl = new URL(endpoint.getBook(bookSample.id), baseURL);
+    const getBookResponse = await fetch(getBookUrl.href);
+
+    const book: { success: boolean; data: Book & { id: string } } =
+      await getBookResponse.json();
+
+    assertEquals(getBookResponse.status, Status.OK);
+    assertEquals(book.data.title, bookSample.title);
   },
 });
 
 Deno.test({
   name: "Create a Book",
   async fn() {
-    const response = await fetch(
-      `http://localhost:${config.PORT}${endpoint.createBook}`,
+    const createBookUrl = new URL(endpoint.createBook, baseURL);
+    const createBookResponse = await fetch(
+      createBookUrl.href,
       {
         method: "POST",
         body: JSON.stringify({
@@ -73,23 +77,41 @@ Deno.test({
       },
     );
 
-    const bookCreated = <{ success: boolean; data: Book }> await response
-      .json();
-    assertEquals(response.status, Status.Created);
+    const bookCreated: { success: boolean; data: Book & { id: string } } =
+      await createBookResponse
+        .json();
 
-    const bookDb = new Database<Book>(BOOKS_KEY);
-    const books = bookDb.findOne(bookCreated.data.id);
-    assertExists(books);
-    assertEquals(books.id, bookCreated.data.id);
+    assertEquals(createBookResponse.status, Status.Created);
+    assertExists(bookCreated);
+
+    const getBookUrl = new URL(endpoint.getBook(bookCreated.data.id), baseURL);
+    const getBookResponse = await fetch(getBookUrl.href);
+
+    assertEquals(getBookResponse.status, Status.OK);
+
+    const book: { success: boolean; data: Book & { id: string } } =
+      await getBookResponse.json();
+
+    assertExists(book.data);
+    assertEquals(book.data.id, bookCreated.data.id);
   },
 });
 
 Deno.test({
   name: "Update a Book",
   async fn() {
-    const bookId = "0371b001-981c-4325-ad0b-faba4c5241d3";
-    const response = await fetch(
-      `http://localhost:${config.PORT}${endpoint.updateBook(bookId)}`,
+    const getAllBooksUrl = new URL(endpoint.getAllBooks, baseURL);
+    const getAllBooksResponse = await fetch(getAllBooksUrl.href);
+    const books: { success: boolean; data: Array<Book & { id: string }> } =
+      await getAllBooksResponse
+        .json();
+
+    assertExists(books);
+
+    const bookSample = books.data[0];
+    const updateBookUrl = new URL(endpoint.updateBook(bookSample.id), baseURL);
+    const updateBookResponse = await fetch(
+      updateBookUrl.href,
       {
         method: "PUT",
         body: JSON.stringify({
@@ -102,23 +124,41 @@ Deno.test({
       },
     );
 
-    const bookUpdated = <{ success: boolean; data: Book }> await response
-      .json();
-    assertEquals(response.status, Status.Created);
+    const bookUpdated: { success: boolean; data: Book & { id: string } } =
+      await updateBookResponse
+        .json();
 
-    const bookDb = new Database<Book>(BOOKS_KEY);
-    const books = bookDb.findOne(bookUpdated.data.id);
-    assertExists(books);
-    assertEquals(books.title, bookUpdated.data.title);
+    assertEquals(updateBookResponse.status, Status.Created);
+    assertExists(bookUpdated.data);
+
+    const getBookUrl = new URL(endpoint.getBook(bookUpdated.data.id), baseURL);
+    const getBookResponse = await fetch(getBookUrl.href);
+
+    assertEquals(getBookResponse.status, Status.OK);
+
+    const book: { success: boolean; data: Book & { id: string } } =
+      await getBookResponse.json();
+
+    assertExists(book.data);
+    assertEquals(book.data.title, bookUpdated.data.title);
   },
 });
 
 Deno.test({
   name: "Delete a Book",
   async fn() {
-    const bookId = "ee3b2fdc-1177-49b2-90e7-74f273eac8f7";
+    const getAllBooksUrl = new URL(endpoint.getAllBooks, baseURL);
+    const getAllBooksResponse = await fetch(getAllBooksUrl.href);
+    const books: { success: boolean; data: Array<Book & { id: string }> } =
+      await getAllBooksResponse
+        .json();
+
+    assertExists(books);
+
+    const bookSample = books.data[0];
+    const deleteBookUrl = new URL(endpoint.deleteBook(bookSample.id), baseURL);
     const response = await fetch(
-      `http://localhost:${config.PORT}${endpoint.deleteBook(bookId)}`,
+      deleteBookUrl.href,
       {
         method: "DELETE",
       },
@@ -128,8 +168,11 @@ Deno.test({
 
     await response.body?.cancel();
 
-    const bookDb = new Database<Book>(BOOKS_KEY);
-    const books = bookDb.findOne(bookId);
-    assertEquals(books, undefined);
+    const getBookUrl = new URL(endpoint.getBook(bookSample.id), baseURL);
+    const getBookResponse = await fetch(getBookUrl.href);
+
+    assertEquals(getBookResponse.status, Status.NotFound);
+
+    await getBookResponse.body?.cancel();
   },
 });
